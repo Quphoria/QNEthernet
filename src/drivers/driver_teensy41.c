@@ -620,6 +620,17 @@ static struct pbuf *low_level_input(volatile enetbufferdesc_t *pBD) {
       arm_dcache_delete(pBD->buffer, MULTIPLE_OF_32(p->tot_len));
 #endif  // !QNETHERNET_BUFFERS_IN_RAM1
       pbuf_take(p, pBD->buffer, p->tot_len);
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+      p->timestampValid = ((bdPtr->status & kEnetRxBdLast) != 0);
+      if (p->timestampValid) {
+        enet_ieee1588_read_timer(&p->timestamp);
+        if ((unsigned long)p->timestamp.tv_nsec < bdPtr->timestamp) {
+          // The timer has wrapped around
+          p->timestamp.tv_sec--;
+        }
+        p->timestamp.tv_nsec = bdPtr->timestamp;
+      }
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
     } else {
       LINK_STATS_INC(link.drop);
       LINK_STATS_INC(link.memerr);
@@ -654,6 +665,15 @@ static inline void update_bufdesc(volatile enetbufferdesc_t *pBD,
                 kEnetTxBdTransmitCrc          |
                 kEnetTxBdLast                 |
                 kEnetTxBdReady;
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+  hasTxTimestamp = false;  // The timestamp isn't yet available
+  if (doTimestampNext) {
+    doTimestampNext = false;
+    bdPtr->extend1 |= kEnetTxBdTimestamp;
+  } else {
+    bdPtr->extend1 &= ~kEnetTxBdTimestamp;
+  }
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
 
   ENET_TDAR = ENET_TDAR_TDAR;
 
@@ -691,6 +711,20 @@ static inline volatile enetbufferdesc_t *rxbd_next() {
 
 // The Ethernet ISR.
 static void enet_isr() {
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+  if ((ENET_EIR & ENET_EIR_TS_TIMER) != 0) {
+    ENET_EIR = ENET_EIR_TS_TIMER;
+    ieee1588Seconds++;
+  }
+
+  if ((ENET_EIR & ENET_EIR_TS_AVAIL) != 0) {
+    ENET_EIR = ENET_EIR_TS_AVAIL;
+    hasTxTimestamp = true;
+    txTimestamp.tv_sec = ieee1588Seconds;
+    txTimestamp.tv_nsec = ENET_ATSTMP;
+  }
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
+  
   if ((ENET_EIR & ENET_EIR_RXF) != 0) {
     ENET_EIR = ENET_EIR_RXF;
     atomic_flag_clear(&s_rxNotAvail);
@@ -913,6 +947,12 @@ bool driver_init(const uint8_t mac[ETH_HWADDR_LEN]) {
   ENET_EIMR = ENET_EIMR_RXF;
   attachInterruptVector(IRQ_ENET, &enet_isr);
   NVIC_ENABLE_IRQ(IRQ_ENET);
+
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+  // Set the IEEE 1588 timestamp to zero, in case it's used but not enabled
+  ENET_ATVR = 0;
+  ieee1588Seconds = 0;
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
 
   // Last few things to do
   ENET_EIR = 0x7fff8000;  // Clear any pending interrupts before setting ETHEREN

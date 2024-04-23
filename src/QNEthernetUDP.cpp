@@ -61,6 +61,12 @@ void EthernetUDP::recvFunc(void *arg, struct udp_pcb *pcb, struct pbuf *p,
       p = p->next;
     }
   }
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+  packet.hasTimestamp = pHead->timestampValid;
+  if (packet.hasTimestamp) {
+    packet.timestamp = pHead->timestamp;
+  }
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
   packet.addr = *addr;
   packet.port = port;
   packet.receivedTimestamp = timestamp;
@@ -248,6 +254,11 @@ void EthernetUDP::Packet::clear() {
   addr = *IP_ANY_TYPE;
   port = 0;
   receivedTimestamp = 0;
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+  hasTimestamp = false;
+  timestamp.tv_sec = 0;
+  timestamp.tv_nsec = 0;
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
 }
 
 // --------------------------------------------------------------------------
@@ -347,6 +358,17 @@ uint16_t EthernetUDP::remotePort() {
 uint32_t EthernetUDP::receivedTimestamp() const {
   return packet_.receivedTimestamp;
 }
+
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+bool EthernetUDP::timestamp(timespec &timestamp) const {
+  // NOTE: This is not "concurrent safe"
+  if (packet_.hasTimestamp) {
+    timestamp = packet_.timestamp;
+    return true;
+  }
+  return false;
+}
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
 
 // --------------------------------------------------------------------------
 //  Transmission

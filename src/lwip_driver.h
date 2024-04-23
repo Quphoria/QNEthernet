@@ -4,7 +4,7 @@
 // lwip_driver.h defines Ethernet interface functions.
 // Based on code from manitou48 and others:
 // https://github.com/PaulStoffregen/teensy41_ethernet
-// This file is part of the QNEthernet library.
+// This file is part o  f the QNEthernet library.
 
 #pragma once
 
@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <time.h>
 
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
@@ -194,9 +195,98 @@ void enet_poll();
 // length is not in the correct range. The proper range is 14-(MAX_FRAME_LEN-8)
 // for non-VLAN frames and 18-(MAX_FRAME_LEN-4) for VLAN frames. Note that these
 // ranges exclude the 4-byte FCS (frame check sequence).
+// The frame is timestamped if `enet_timestamp_next_frame()` was called first.
 //
 // This returns the result of driver_output_frame(), if the frame checks pass.
 bool enet_output_frame(const uint8_t *frame, size_t len);
+
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+// --------------------------------------------------------------------------
+//  IEEE 1588 functions
+// --------------------------------------------------------------------------
+
+// Shared Variables
+extern volatile uint32_t ieee1588Seconds = 0;  // Since the timer was started
+extern volatile bool doTimestampNext = false;
+extern volatile bool hasTxTimestamp = false;
+extern volatile struct timespec txTimestamp = {0, 0};
+
+// Initializes and enables the IEEE 1588 timer and functionality. The internal
+// time is reset to zero.
+void enet_ieee1588_init();
+
+// Deinitializes and stops the IEEE 1588 timer.
+void enet_ieee1588_deinit();
+
+// Tests if the IEEE 1588 timer is enabled.
+bool enet_ieee1588_is_enabled();
+
+// Reads the IEEE 1588 timer. This returns whether successful.
+//
+// This will return false if the argument is NULL.
+bool enet_ieee1588_read_timer(struct timespec *t);
+
+// Writes the IEEE 1588 timer. This returns whether successful.
+//
+// This will return false if the argument is NULL.
+bool enet_ieee1588_write_timer(const struct timespec *t);
+
+// Tells the driver to timestamp the next transmitted frame.
+void enet_ieee1588_timestamp_next_frame();
+
+// Returns whether an IEEE 1588 transmit timestamp is available. If available
+// and the parameter is not NULL then it is assigned to `*timestamp`. This
+// clears the timestamp state so that a subsequent call will return false.
+//
+// This function is used after sending a packet having its transmit timestamp
+// sent. Note that this only returns the latest value, so if a second
+// timestamped packet is sent before retrieving the timestamp for the first
+// then this will return the second timestamp (if already available).
+bool enet_ieee1588_read_and_clear_tx_timestamp(struct timespec *timestamp);
+
+// Directly adjust the correction increase and correction period. To adjust the
+// timer in "nanoseconds per second", see `enet_ieee1588_adjust_freq`. This
+// returns whether successful.
+//
+// This will return false if:
+// 1. The correction increment is not in the range 0-127, or
+// 2. The correction period is not in the range 0-(2^31-1).
+bool enet_ieee1588_adjust_timer(uint32_t corrInc, uint32_t corrPeriod);
+
+// Adjust the correction in nanoseconds per second. This uses
+// `enet_ieee1588_adjust_timer()` under the hood.
+bool enet_ieee1588_adjust_freq(int nsps);
+
+// Sets the channel mode for the given channel. This does not set the output
+// compare pulse modes. This returns whether successful.
+//
+// This will return false if:
+// 1. The channel is unknown,
+// 2. The mode is one of the output compare pulse modes, or
+// 3. The mode is a reserved value or unknown.
+bool enet_ieee1588_set_channel_mode(int channel, int mode);
+
+// Sets the output compare pulse mode and pulse width for the given channel.
+// This returns whether successful.
+//
+// This will return false if:
+// 1. The channel is unknown,
+// 2. The mode is not one of the output compare pulse modes, or
+// 3. The pulse width is not in the range 1-32.
+bool enet_ieee1588_set_channel_output_pulse_width(int channel,
+                                                  int mode,
+                                                  int pulseWidth);
+
+// Sets the channel compare value. This returns whether successful.
+//
+// This will return false for an unknown channel.
+bool enet_ieee1588_set_channel_compare_value(int channel, uint32_t value);
+
+// Retrieves and then clears the status for the given channel. This will return
+// false for an unknown channel.
+bool enet_ieee1588_get_and_clear_channel_status(int channel);
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
+
 #endif  // QNETHERNET_ENABLE_RAW_FRAME_SUPPORT
 
 #if !QNETHERNET_ENABLE_PROMISCUOUS_MODE && LWIP_IPV4

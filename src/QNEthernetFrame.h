@@ -13,6 +13,7 @@
 // C++ includes
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <vector>
 
 #include <Stream.h>
@@ -186,10 +187,21 @@ class EthernetFrameClass final : public Stream {
     return inBuf_.size();
   }
 
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+  // Gets the IEEE 1588 timestamp for the received frame and assigns it to the
+  // `timestamp` parameter, if available. This returns whether the received
+  // frame has a timestamp.
+  bool timestamp(timespec &timestamp) const;
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
+
  private:
   struct Frame final {
     std::vector<uint8_t> data;
     volatile uint32_t receivedTimestamp = 0;  // Approximate arrival time
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+    volatile bool hasTimestamp = false;
+    timespec timestamp{0, 0};
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
 
     // Clears all the data.
     void clear();

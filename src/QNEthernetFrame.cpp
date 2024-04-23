@@ -60,6 +60,13 @@ err_t EthernetFrameClass::recvFunc(struct pbuf *p,
   }
   frame.receivedTimestamp = timestamp;
 
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+  frame.hasTimestamp = pHead->timestampValid;
+  if (frame.hasTimestamp) {
+    frame.timestamp = pHead->timestamp;
+  }
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
+
   // Increment the size
   if (EthernetFrame.inBufSize_ != 0 &&
       EthernetFrame.inBufTail_ == EthernetFrame.inBufHead_) {
@@ -90,6 +97,11 @@ FLASHMEM EthernetFrameClass::EthernetFrameClass()
 void EthernetFrameClass::Frame::clear() {
   data.clear();
   receivedTimestamp = 0;
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+  hasTimestamp = false;
+  timestamp.tv_sec = 0;
+  timestamp.tv_nsec = 0;
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
 }
 
 // --------------------------------------------------------------------------
@@ -228,6 +240,17 @@ void EthernetFrameClass::setReceiveQueueSize(size_t size) {
 
   inBuf_.shrink_to_fit();
 }
+
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+bool EthernetFrameClass::timestamp(timespec &timestamp) const {
+  // NOTE: This is not "concurrent safe"
+  if (frame_.hasTimestamp) {
+    timestamp = frame_.timestamp;
+    return true;
+  }
+  return false;
+}
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
 
 // --------------------------------------------------------------------------
 //  Transmission

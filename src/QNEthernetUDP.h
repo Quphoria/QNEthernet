@@ -13,6 +13,7 @@
 // C++ includes
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <vector>
 
 #include <IPAddress.h>
@@ -161,12 +162,23 @@ class EthernetUDP : public UDP {
   // This will return zero if the internal state has not yet been created.
   uint8_t diffServ() const;
 
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT  
+  // Gets the IEEE 1588 timestamp for the received packet and assigns it to the
+  // `timestamp` parameter, if available. This returns whether the received
+  // packet has a timestamp.
+  bool timestamp(timespec &timestamp) const;
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
+
  private:
   struct Packet final {
     std::vector<uint8_t> data;
     ip_addr_t addr = *IP_ANY_TYPE;
     volatile uint16_t port = 0;
     volatile uint32_t receivedTimestamp = 0;  // Approximate arrival time
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+    volatile bool hasTimestamp = false;
+    timespec timestamp{0, 0};
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
 
     // Clears all the data.
     void clear();

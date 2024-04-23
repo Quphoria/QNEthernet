@@ -16,6 +16,7 @@
 
 #include "QNEthernetClient.h"
 #include "QNEthernetFrame.h"
+#include "QNEthernetIEEE1588.h"
 #include "QNEthernetServer.h"
 #include "QNEthernetUDP.h"
 #include "QNMDNS.h"
@@ -412,6 +413,17 @@ class EthernetClass final {
 STATIC_INIT_DECL(EthernetClass, Ethernet);
 
 #if QNETHERNET_CUSTOM_WRITE
+
+#ifndef QNETHERNET_DISABLE_RAW_FRAME_SUPPORT
+// Instance for using raw Ethernet frames.
+extern EthernetFrameClass &EthernetFrame;
+#endif  // !QNETHERNET_DISABLE_RAW_FRAME_SUPPORT
+
+#if QNETHERNET_ENABLE_IEEE1588_SUPPORT
+// Instance for using IEEE 1588 functions.
+extern EthernetIEEE1588Class &EthernetIEEE1588;
+#endif // QNETHERNET_ENABLE_IEEE1588_SUPPORT
+
 // stdout output.
 extern Print *stdoutPrint;
 
