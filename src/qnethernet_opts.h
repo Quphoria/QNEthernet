@@ -54,6 +54,10 @@
 // #define QNETHERNET_DRIVER_W5500
 #endif
 
+#ifndef QNETHERNET_ENABLE_IEEE1588_SUPPORT
+#define QNETHERNET_ENABLE_IEEE1588_SUPPORT 1
+#endif
+
 // Enables default implementations of the altcp interface functions.
 #ifndef QNETHERNET_ENABLE_ALTCP_DEFAULT_FUNCTIONS
 #define QNETHERNET_ENABLE_ALTCP_DEFAULT_FUNCTIONS 0
@@ -72,7 +76,7 @@
 
 // Enables raw frame support.
 #ifndef QNETHERNET_ENABLE_RAW_FRAME_SUPPORT
-#define QNETHERNET_ENABLE_RAW_FRAME_SUPPORT 0
+#define QNETHERNET_ENABLE_RAW_FRAME_SUPPORT 1
 #endif
 
 // Follows every call to 'EthernetClient::write()` with a flush. This may reduce

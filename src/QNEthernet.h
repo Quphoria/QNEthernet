@@ -414,10 +414,12 @@ STATIC_INIT_DECL(EthernetClass, Ethernet);
 
 #if QNETHERNET_CUSTOM_WRITE
 
+// --------- Unsure about this bit getting added???
 #ifndef QNETHERNET_DISABLE_RAW_FRAME_SUPPORT
 // Instance for using raw Ethernet frames.
 extern EthernetFrameClass &EthernetFrame;
 #endif  // !QNETHERNET_DISABLE_RAW_FRAME_SUPPORT
+// --------------
 
 #if QNETHERNET_ENABLE_IEEE1588_SUPPORT
 // Instance for using IEEE 1588 functions.
